@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
+        }
+        #canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 18px;
+            color: #333;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #333;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        Loading 3D Scene...
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.181.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.181.2/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        let scene, camera, renderer, mixer, clock;
+        const canvas = document.getElementById('canvas');
+        const loading = document.getElementById('loading');
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(
+                50,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(0, 1.5, 5);
+            camera.lookAt(0, 0, 0);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            directionalLight.position.set(5, 10, 5);
+            scene.add(directionalLight);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            directionalLight2.position.set(-5, 5, -5);
+            scene.add(directionalLight2);
+
+            // Clock for animation
+            clock = new THREE.Clock();
+
+            // Load models
+            loadModels();
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        async function loadModels() {
+            const loader = new GLTFLoader();
+
+            try {
+                // Load counter model
+                const counterGltf = await loader.loadAsync('../models/counter.glb');
+                const counter = counterGltf.scene;
+                counter.position.set(0, -1, 0);
+                counter.scale.set(1, 1, 1);
+                scene.add(counter);
+
+                // Load shop owner model
+                const shopOwnerGltf = await loader.loadAsync('../models/shop-owner.glb');
+                const shopOwner = shopOwnerGltf.scene;
+                shopOwner.position.set(0, -1, -0.5);
+                shopOwner.scale.set(1, 1, 1);
+                scene.add(shopOwner);
+
+                // Load idle animation
+                const animationGltf = await loader.loadAsync('../models/idle-animation.glb');
+
+                // Apply animation to shop owner
+                if (animationGltf.animations && animationGltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(shopOwner);
+                    const idleAction = mixer.clipAction(animationGltf.animations[0]);
+                    idleAction.play();
+                }
+
+                // Hide loading indicator
+                loading.style.display = 'none';
+
+                // Start animation loop
+                animate();
+            } catch (error) {
+                console.error('Error loading 3D models:', error);
+                loading.innerHTML = '<div style="color: red;">Error loading 3D models</div>';
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            // Update animation mixer
+            if (mixer) {
+                mixer.update(delta);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Initialize the scene
+        init();
+    </script>
+</body>
+</html>
